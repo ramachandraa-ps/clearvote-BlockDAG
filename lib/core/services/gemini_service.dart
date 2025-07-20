@@ -1,5 +1,6 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
 
 class GeminiService {
   static final GeminiService _instance = GeminiService._internal();
@@ -12,13 +13,8 @@ class GeminiService {
   }
 
   GeminiService._internal() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
-    if (apiKey.isEmpty) {
-      _model = null;
-      _chatModel = null;
-      isConfigured = false;
-      return;
-    }
+    // Use hardcoded API key instead of loading from .env
+    const apiKey = 'AIzaSyAvg7hu12KkfoDZUr4WD5EfAiM3yZumGGw';
     
     try {
       // Initialize the model for content generation
@@ -110,33 +106,79 @@ class GeminiService {
       final content = [Content.text(prompt)];
       final response = await _model!.generateContent(content);
       
-      // In a real app, you would parse the JSON response
-      // For now, return a sample response
-      return {
-        "summary": response.text ?? "This proposal suggests implementing a new voting mechanism for the DAO that would require a 60% majority for any proposal to pass, rather than the current simple majority. The change aims to ensure broader consensus on important decisions.",
-        "recommendation": {
-          "vote": "YES",
-          "explanation": "The proposal aligns with best practices for governance and would likely improve decision quality through broader consensus requirements."
-        },
-        "impact": {
-          "tokenHolders": {
-            "assessment": "Mixed",
-            "explanation": "Some token holders may find it harder to pass proposals, while others will appreciate the increased consensus requirements."
+      if (response.text == null || response.text!.isEmpty) {
+        return {
+          "error": "Empty response from API",
+          "summary": "Error: No response generated",
+          "recommendation": {
+            "vote": "NEUTRAL",
+            "explanation": "Unable to provide a recommendation due to an empty API response."
           },
-          "treasury": {
-            "assessment": "Neutral",
-            "explanation": "No direct impact on treasury funds."
-          },
-          "security": {
-            "assessment": "Positive",
-            "explanation": "Higher consensus requirements reduce the risk of harmful proposals passing."
-          },
-          "longTermGrowth": {
-            "assessment": "Positive",
-            "explanation": "Better decision-making processes typically lead to better long-term outcomes."
-          }
+          "impact": {}
+        };
+      }
+      
+      // Try to parse the response as JSON
+      try {
+        // Clean up the response text to ensure it's valid JSON
+        String jsonText = response.text!.trim();
+        
+        // Remove any markdown code block indicators if present
+        if (jsonText.startsWith("```json")) {
+          jsonText = jsonText.substring(7);
         }
-      };
+        if (jsonText.startsWith("```")) {
+          jsonText = jsonText.substring(3);
+        }
+        if (jsonText.endsWith("```")) {
+          jsonText = jsonText.substring(0, jsonText.length - 3);
+        }
+        
+        jsonText = jsonText.trim();
+        
+        // Parse the JSON response
+        final Map<String, dynamic> parsedResponse = json.decode(jsonText);
+        
+        // Ensure the response has the expected structure
+        if (!parsedResponse.containsKey('summary')) {
+          parsedResponse['summary'] = "The API response didn't include a proper summary.";
+        }
+        
+        if (!parsedResponse.containsKey('recommendation')) {
+          parsedResponse['recommendation'] = {
+            "vote": "NEUTRAL",
+            "explanation": "No recommendation provided in API response."
+          };
+        } else if (!parsedResponse['recommendation'].containsKey('vote')) {
+          parsedResponse['recommendation']['vote'] = "NEUTRAL";
+        }
+        
+        if (!parsedResponse.containsKey('impact')) {
+          parsedResponse['impact'] = {
+            "tokenHolders": {"assessment": "Neutral", "explanation": "No impact assessment provided."},
+            "treasury": {"assessment": "Neutral", "explanation": "No impact assessment provided."},
+            "security": {"assessment": "Neutral", "explanation": "No impact assessment provided."},
+            "longTermGrowth": {"assessment": "Neutral", "explanation": "No impact assessment provided."}
+          };
+        }
+        
+        return parsedResponse;
+      } catch (e) {
+        // If JSON parsing fails, return a formatted response with the raw text as summary
+        return {
+          "summary": response.text ?? "Unable to parse response",
+          "recommendation": {
+            "vote": "NEUTRAL",
+            "explanation": "Unable to parse API response into the expected format."
+          },
+          "impact": {
+            "tokenHolders": {"assessment": "Neutral", "explanation": "Unable to parse impact assessment."},
+            "treasury": {"assessment": "Neutral", "explanation": "Unable to parse impact assessment."},
+            "security": {"assessment": "Neutral", "explanation": "Unable to parse impact assessment."},
+            "longTermGrowth": {"assessment": "Neutral", "explanation": "Unable to parse impact assessment."}
+          }
+        };
+      }
     } catch (e) {
       return {
         "error": e.toString(),
@@ -220,30 +262,60 @@ class GeminiService {
       final content = [Content.text(prompt)];
       final response = await _model!.generateContent(content);
       
-      // In a real app, you would parse the JSON response
-      // For now, return a sample response
-      return {
-        "differences": {
-          "Voting Threshold": [
-            "60% majority required",
-            "51% simple majority"
-          ],
-          "Implementation Timeline": [
-            "Immediate upon approval",
-            "Phased implementation over 3 months"
-          ],
-          "Treasury Impact": [
-            "No direct cost",
-            "Requires 50,000 token allocation"
-          ]
-        },
-        "similarities": [
-          "Both proposals aim to improve governance participation",
-          "Both maintain the existing voting period duration",
-          "Neither proposal changes the quorum requirements"
-        ],
-        "analysis": "Proposal 1 focuses on governance structure changes with no direct costs, while Proposal 2 includes resource allocation but offers a more gradual implementation approach. The choice depends on whether immediate change or resource efficiency is prioritized."
-      };
+      if (response.text == null || response.text!.isEmpty) {
+        return {
+          "error": "Empty response from API",
+          "differences": {},
+          "similarities": [],
+          "analysis": "Unable to compare proposals due to empty API response."
+        };
+      }
+      
+      // Try to parse the response as JSON
+      try {
+        // Clean up the response text to ensure it's valid JSON
+        String jsonText = response.text!.trim();
+        
+        // Remove any markdown code block indicators if present
+        if (jsonText.startsWith("```json")) {
+          jsonText = jsonText.substring(7);
+        }
+        if (jsonText.startsWith("```")) {
+          jsonText = jsonText.substring(3);
+        }
+        if (jsonText.endsWith("```")) {
+          jsonText = jsonText.substring(0, jsonText.length - 3);
+        }
+        
+        jsonText = jsonText.trim();
+        
+        // Parse the JSON response
+        final Map<String, dynamic> parsedResponse = json.decode(jsonText);
+        
+        // Ensure the response has the expected structure
+        if (!parsedResponse.containsKey('differences')) {
+          parsedResponse['differences'] = {};
+        }
+        
+        if (!parsedResponse.containsKey('similarities')) {
+          parsedResponse['similarities'] = [];
+        }
+        
+        if (!parsedResponse.containsKey('analysis')) {
+          parsedResponse['analysis'] = "No analysis provided in API response.";
+        }
+        
+        return parsedResponse;
+      } catch (e) {
+        // If JSON parsing fails, return a formatted response
+        return {
+          "differences": {
+            "Format": ["Unable to parse response", "Unable to parse response"]
+          },
+          "similarities": ["Unable to parse response"],
+          "analysis": response.text ?? "Unable to parse response"
+        };
+      }
     } catch (e) {
       return {
         "error": "Error comparing proposals: $e",

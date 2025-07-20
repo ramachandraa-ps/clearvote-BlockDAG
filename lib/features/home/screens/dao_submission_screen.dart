@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:clearvote/core/services/gemini_service.dart';
+import 'package:clearvote/core/services/firebase_service.dart';
 import 'package:clearvote/features/summary/screens/summary_screen.dart';
 import 'package:clearvote/features/about/screens/about_screen.dart';
 import 'package:clearvote/features/history/screens/history_screen.dart';
@@ -15,21 +16,43 @@ class DAOSubmissionScreen extends StatefulWidget {
 class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   final TextEditingController _proposalController = TextEditingController();
   final GeminiService _geminiService = GeminiService();
+  final FirebaseService _firebaseService = FirebaseService();
   bool _isLoading = false;
-  String? _selectedFile;
   double _summaryLength = 0.5; // Default to middle value
   String? _apiError;
+  List<Map<String, dynamic>> _recentProposals = [];
+  bool _isLoadingRecent = false;
   
   @override
   void initState() {
     super.initState();
     _checkApiConfiguration();
+    _loadRecentProposals();
   }
   
   void _checkApiConfiguration() {
     if (!_geminiService.isConfigured) {
       setState(() {
-        _apiError = 'Gemini API key not configured. Please check your .env file.';
+        _apiError = 'Gemini API key not configured properly. Please check the configuration.';
+      });
+    }
+  }
+  
+  Future<void> _loadRecentProposals() async {
+    setState(() {
+      _isLoadingRecent = true;
+    });
+    
+    try {
+      final proposals = await _firebaseService.getRecentProposals();
+      setState(() {
+        _recentProposals = proposals;
+        _isLoadingRecent = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading recent proposals: $e');
+      setState(() {
+        _isLoadingRecent = false;
       });
     }
   }
@@ -43,22 +66,14 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   void _clearProposal() {
     setState(() {
       _proposalController.clear();
-      _selectedFile = null;
-    });
-  }
-
-  void _selectFile() {
-    // In a real app, this would use file_picker package
-    setState(() {
-      _selectedFile = 'proposal_example.pdf';
     });
   }
 
   void _summarizeProposal() async {
-    if (_proposalController.text.trim().isEmpty && _selectedFile == null) {
+    if (_proposalController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter text or upload a document'),
+          content: Text('Please enter proposal text'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -93,7 +108,10 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
             summaryLength: _summaryLength,
           ),
         ),
-      );
+      ).then((_) {
+        // Refresh recent proposals when returning from summary screen
+        _loadRecentProposals();
+      });
     } catch (e) {
       setState(() {
         _apiError = 'Error: ${e.toString()}';
@@ -113,12 +131,31 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
     }
   }
   
+  void _loadProposal(Map<String, dynamic> proposal) {
+    setState(() {
+      _proposalController.text = proposal['originalText'] ?? '';
+      if (proposal['summaryLength'] != null) {
+        _summaryLength = proposal['summaryLength'];
+      }
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Proposal loaded'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+  
   void _navigateToHistory() {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const HistoryScreen(),
       ),
-    );
+    ).then((_) {
+      // Refresh recent proposals when returning from history screen
+      _loadRecentProposals();
+    });
   }
   
   void _navigateToAbout() {
@@ -181,7 +218,7 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
                 TextFormField(
                   controller: _proposalController,
                   maxLines: null,
-                  minLines: 8,
+                  minLines: 12, // Increased height since we removed file upload section
                   maxLength: 5000,
                   keyboardType: TextInputType.multiline,
                   style: const TextStyle(color: Colors.white),
@@ -204,63 +241,6 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
                       icon: const Icon(Icons.clear, color: Colors.white70),
                       onPressed: _clearProposal,
                     ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Document Upload Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A2C3D),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF4296EA).withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.upload_file, color: Color(0xFF4296EA)),
-                          SizedBox(width: 8),
-                          Text(
-                            'Upload Document',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _selectedFile ?? 'No file selected',
-                              style: TextStyle(
-                                color: _selectedFile != null ? Colors.white : Colors.white60,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: _selectFile,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF4296EA),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text('Choose File'),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -341,6 +321,87 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 32),
+                
+                // Recent Proposals Section
+                if (_recentProposals.isNotEmpty || _isLoadingRecent) ...[
+                  const Text(
+                    'Recent Proposals',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  _isLoadingRecent
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4296EA),
+                          ),
+                        )
+                      : Column(
+                          children: _recentProposals.map((proposal) {
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              color: const Color(0xFF1A2C3D),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: const Color(0xFF4296EA).withOpacity(0.3)),
+                              ),
+                              child: InkWell(
+                                onTap: () => _loadProposal(proposal),
+                                borderRadius: BorderRadius.circular(10),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              proposal['title'] ?? 'Untitled Proposal',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.white,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              proposal['summary'] != null
+                                                  ? (proposal['summary'] as String).length > 80
+                                                      ? '${(proposal['summary'] as String).substring(0, 80)}...'
+                                                      : proposal['summary'] as String
+                                                  : 'No summary available',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.white70,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(
+                                        Icons.arrow_forward_ios,
+                                        color: Colors.white54,
+                                        size: 16,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ],
+                
                 const SizedBox(height: 20),
               ],
             ),
