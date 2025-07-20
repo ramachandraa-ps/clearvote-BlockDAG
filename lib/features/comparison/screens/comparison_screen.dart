@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:clearvote/core/services/gemini_service.dart';
 
 class ComparisonScreen extends StatefulWidget {
   const ComparisonScreen({super.key});
@@ -13,30 +14,16 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
     TextEditingController(),
   ];
   
+  final GeminiService _geminiService = GeminiService();
+  
   bool _isLoading = false;
   bool _showComparison = false;
+  String? _error;
   
-  // Sample comparison data - in a real app, this would come from an API
-  final Map<String, List<String>> _differences = {
-    'Voting Threshold': [
-      '60% majority required',
-      '51% simple majority',
-    ],
-    'Implementation Timeline': [
-      'Immediate upon approval',
-      'Phased implementation over 3 months',
-    ],
-    'Treasury Impact': [
-      'No direct cost',
-      'Requires 50,000 token allocation',
-    ],
-  };
-  
-  final List<String> _similarities = [
-    'Both proposals aim to improve governance participation',
-    'Both maintain the existing voting period duration',
-    'Neither proposal changes the quorum requirements',
-  ];
+  // Comparison data
+  Map<String, List<String>> _differences = {};
+  List<String> _similarities = [];
+  String _analysis = '';
 
   @override
   void dispose() {
@@ -46,7 +33,7 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
     super.dispose();
   }
 
-  void _compareProposals() {
+  Future<void> _compareProposals() async {
     // Check if at least two proposals have content
     if (_proposalControllers[0].text.trim().isEmpty || 
         _proposalControllers[1].text.trim().isEmpty) {
@@ -61,15 +48,53 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
 
     setState(() {
       _isLoading = true;
+      _error = null;
     });
 
-    // Simulate API call delay
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // Get the proposal texts
+      final List<String> proposals = _proposalControllers
+          .map((controller) => controller.text.trim())
+          .where((text) => text.isNotEmpty)
+          .toList();
+      
+      // Call the API to compare proposals
+      final result = await _geminiService.compareProposals(proposals);
+      
       setState(() {
+        _differences = Map<String, List<String>>.from(result['differences'] ?? {});
+        _similarities = List<String>.from(result['similarities'] ?? []);
+        _analysis = result['analysis'] ?? 'No analysis available';
         _isLoading = false;
         _showComparison = true;
       });
-    });
+    } catch (e) {
+      setState(() {
+        _error = 'Error comparing proposals: ${e.toString()}';
+        _isLoading = false;
+        
+        // Set default values in case of error
+        _differences = {
+          'Implementation': ['Not specified', 'Not specified'],
+          'Cost': ['Not specified', 'Not specified'],
+          'Timeline': ['Not specified', 'Not specified']
+        };
+        _similarities = [
+          'Both are DAO proposals',
+          'Both aim to improve the DAO'
+        ];
+        _analysis = 'Unable to provide a detailed analysis due to an error.';
+        _showComparison = true;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_error!),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override

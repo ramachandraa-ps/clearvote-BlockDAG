@@ -5,14 +5,14 @@ import 'package:clearvote/features/about/screens/about_screen.dart';
 import 'package:clearvote/features/history/screens/history_screen.dart';
 import 'package:clearvote/features/comparison/screens/comparison_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class DAOSubmissionScreen extends StatefulWidget {
+  const DAOSubmissionScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<DAOSubmissionScreen> createState() => _DAOSubmissionScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   final TextEditingController _proposalController = TextEditingController();
   final GeminiService _geminiService = GeminiService();
   bool _isLoading = false;
