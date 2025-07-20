@@ -1,40 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:clearvote/features/onboarding/screens/onboarding_screen.dart';
-import 'package:clearvote/features/home/screens/home_screen.dart';
-import 'package:clearvote/features/auth/screens/login_screen.dart';
-import 'package:clearvote/features/auth/screens/signup_screen.dart';
+import 'package:clearvote/screens/onboarding_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AppRoutes {
   static const String onboarding = '/onboarding';
   static const String login = '/login';
-  static const String signup = '/signup';
   static const String home = '/home';
 
   static Map<String, WidgetBuilder> get routes => {
     onboarding: (context) => const OnboardingScreen(),
-    login: (context) => const LoginScreen(),
-    signup: (context) => const SignupScreen(),
-    home: (context) => const HomeScreen(),
+    // Add other routes as they become available
+    // login: (context) => const LoginScreen(),
+    // home: (context) => const HomeScreen(),
   };
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
+    // For routes that need special handling or parameters
     switch (settings.name) {
-      case onboarding:
-        return MaterialPageRoute(builder: (_) => const OnboardingScreen());
-      case login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
-      case signup:
-        return MaterialPageRoute(builder: (_) => const SignupScreen());
-      case home:
-        return MaterialPageRoute(builder: (_) => const HomeScreen());
       default:
         return MaterialPageRoute(
-          builder: (_) => Scaffold(
+          builder: (_) => const Scaffold(
             body: Center(
-              child: Text('No route defined for ${settings.name}'),
+              child: Text('Route not found'),
             ),
           ),
         );
+    }
+  }
+
+  // Helper method to determine initial route based on first launch
+  static Future<String> getInitialRoute() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool hasSeenOnboarding = prefs.getBool('hasSeenOnboarding') ?? false;
+    
+    if (!hasSeenOnboarding) {
+      return onboarding;
+    } else {
+      return login;
     }
   }
 }
