@@ -1,12 +1,18 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:math';
 
 class GeminiService {
   static final GeminiService _instance = GeminiService._internal();
   late final GenerativeModel? _model;
   late final GenerativeModel? _chatModel;
   bool isConfigured = false;
+  
+  // Retry configuration
+  static const int _maxRetries = 3;
+  static const int _initialBackoffMs = 1000;
 
   factory GeminiService() {
     return _instance;
@@ -17,9 +23,9 @@ class GeminiService {
     const apiKey = 'AIzaSyAvg7hu12KkfoDZUr4WD5EfAiM3yZumGGw';
     
     try {
-      // Initialize the model for content generation
+      // Initialize the model for content generation using Gemini 1.5 Flash
       _model = GenerativeModel(
-        model: 'gemini-1.5-flash',
+        model: 'gemini-1.5-flash', // Using Gemini 1.5 Flash model
         apiKey: apiKey,
         generationConfig: GenerationConfig(
           temperature: 0.7,
@@ -29,9 +35,9 @@ class GeminiService {
         ),
       );
       
-      // Initialize the model for chat
+      // Initialize the model for chat using Gemini 1.5 Flash
       _chatModel = GenerativeModel(
-        model: 'gemini-1.5-flash',
+        model: 'gemini-1.5-flash', // Using Gemini 1.5 Flash model
         apiKey: apiKey,
       );
       
@@ -40,6 +46,41 @@ class GeminiService {
       _model = null;
       _chatModel = null;
       isConfigured = false;
+    }
+  }
+
+  /// Helper method to execute API calls with retry logic
+  Future<T> _executeWithRetry<T>(Future<T> Function() apiCall) async {
+    int retryCount = 0;
+    
+    while (true) {
+      try {
+        return await apiCall();
+      } catch (e) {
+        // Check if we've reached max retries
+        if (retryCount >= _maxRetries) {
+          rethrow;
+        }
+        
+        // Check if the error is a server overload error (503)
+        bool isServerOverloaded = e.toString().contains('503') || 
+                                 e.toString().contains('UNAVAILABLE') || 
+                                 e.toString().contains('overloaded');
+        
+        if (!isServerOverloaded) {
+          rethrow; // If not a server error, don't retry
+        }
+        
+        // Calculate backoff time with exponential backoff and jitter
+        final backoffMs = _initialBackoffMs * pow(2, retryCount) + 
+                          Random().nextInt(1000);
+        
+        print('Gemini API overloaded. Retrying in ${backoffMs}ms (attempt ${retryCount + 1}/$_maxRetries)');
+        
+        // Wait before retrying
+        await Future.delayed(Duration(milliseconds: backoffMs.toInt()));
+        retryCount++;
+      }
     }
   }
 
@@ -104,7 +145,9 @@ class GeminiService {
       ''';
 
       final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
+      
+      // Use the retry mechanism for the API call
+      final response = await _executeWithRetry(() => _model!.generateContent(content));
       
       if (response.text == null || response.text!.isEmpty) {
         return {
@@ -182,10 +225,10 @@ class GeminiService {
     } catch (e) {
       return {
         "error": e.toString(),
-        "summary": "Error generating summary",
+        "summary": "Error generating summary: ${e.toString()}",
         "recommendation": {
           "vote": "NEUTRAL",
-          "explanation": "Unable to provide a recommendation due to an error."
+          "explanation": "Unable to provide a recommendation due to an error: ${e.toString()}"
         },
         "impact": {}
       };
@@ -212,7 +255,10 @@ class GeminiService {
       ''';
 
       final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
+      
+      // Use the retry mechanism for the API call
+      final response = await _executeWithRetry(() => _model!.generateContent(content));
+      
       return response.text ?? 'No response generated';
     } catch (e) {
       return 'Error: $e';
@@ -260,7 +306,9 @@ class GeminiService {
       ''';
 
       final content = [Content.text(prompt)];
-      final response = await _model!.generateContent(content);
+      
+      // Use the retry mechanism for the API call
+      final response = await _executeWithRetry(() => _model!.generateContent(content));
       
       if (response.text == null || response.text!.isEmpty) {
         return {

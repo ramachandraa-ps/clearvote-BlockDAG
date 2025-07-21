@@ -25,6 +25,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
   bool _isLoading = true;
   bool _isLoadingAnswer = false;
   bool _isSaving = false;
+  bool _isRetrying = false;
+  int _retryCount = 0;
+  final int _maxRetries = 3;
   final List<Map<String, String>> _chatHistory = [];
   String _voteRecommendation = 'YES'; // Could be 'YES', 'NO', or 'NEUTRAL'
   bool _thumbsUp = false;
@@ -64,6 +67,13 @@ class _SummaryScreenState extends State<SummaryScreen> {
           _error = result['error'];
           _isLoading = false;
           
+          // Check if the error is related to server overload (503)
+          if (_error!.contains('503') || 
+              _error!.contains('UNAVAILABLE') || 
+              _error!.contains('overloaded')) {
+            _error = 'The AI service is currently experiencing high traffic. Please try again in a few moments.';
+          }
+          
           // Set default values in case of error
           _summaryContent = 'Unable to generate summary at this time.';
           _recommendationExplanation = 'Unable to provide a recommendation.';
@@ -83,24 +93,57 @@ class _SummaryScreenState extends State<SummaryScreen> {
         _recommendationExplanation = result['recommendation']['explanation'] ?? 'No explanation available';
         _impactAssessment = result['impact'] ?? {};
         _isLoading = false;
+        _retryCount = 0; // Reset retry count on success
       });
       
       // Save the summary to Firebase
       _saveToFirebase();
     } catch (e) {
       setState(() {
-        _error = 'Error generating summary: ${e.toString()}';
-        _isLoading = false;
+        String errorMessage = e.toString();
         
-        // Set default values in case of error
-        _summaryContent = 'Unable to generate summary at this time.';
-        _recommendationExplanation = 'Unable to provide a recommendation.';
-        _impactAssessment = {
-          'tokenHolders': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
-          'treasury': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
-          'security': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
-          'longTermGrowth': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'}
-        };
+        // Check if the error is related to server overload (503)
+        if (errorMessage.contains('503') || 
+            errorMessage.contains('UNAVAILABLE') || 
+            errorMessage.contains('overloaded')) {
+          _error = 'The AI service is currently experiencing high traffic. Please try again in a few moments.';
+          
+          // Implement retry logic if we haven't exceeded max retries
+          if (_retryCount < _maxRetries) {
+            _retryCount++;
+            _isRetrying = true;
+            _error = 'The AI service is busy. Retrying... (Attempt $_retryCount/$_maxRetries)';
+            
+            // Wait a bit before retrying with exponential backoff
+            Future.delayed(Duration(seconds: 2 * _retryCount), () {
+              if (mounted) {
+                setState(() {
+                  _isRetrying = false;
+                  _isLoading = true;
+                });
+                _fetchSummary();
+              }
+            });
+          } else {
+            _isLoading = false;
+            _error = 'The AI service is currently unavailable. Please try again later.';
+          }
+        } else {
+          _error = 'Error generating summary: $errorMessage';
+          _isLoading = false;
+        }
+        
+        if (!_isRetrying) {
+          // Set default values in case of error
+          _summaryContent = 'Unable to generate summary at this time.';
+          _recommendationExplanation = 'Unable to provide a recommendation.';
+          _impactAssessment = {
+            'tokenHolders': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
+            'treasury': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
+            'security': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'},
+            'longTermGrowth': {'assessment': 'Neutral', 'explanation': 'Unable to assess impact.'}
+          };
+        }
       });
     }
   }
@@ -167,14 +210,24 @@ class _SummaryScreenState extends State<SummaryScreen> {
         _isLoadingAnswer = false;
       });
     } catch (e) {
+      String errorMessage = e.toString();
+      String userFriendlyError = 'Sorry, I encountered an error while processing your question. Please try again.';
+      
+      // Check if the error is related to server overload (503)
+      if (errorMessage.contains('503') || 
+          errorMessage.contains('UNAVAILABLE') || 
+          errorMessage.contains('overloaded')) {
+        userFriendlyError = 'The AI service is currently experiencing high traffic. Please try again in a few moments.';
+      }
+      
       setState(() {
-        _chatHistory.add({'ai': 'Sorry, I encountered an error while processing your question. Please try again.'});
+        _chatHistory.add({'ai': userFriendlyError});
         _isLoadingAnswer = false;
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text(userFriendlyError),
           behavior: SnackBarBehavior.floating,
           backgroundColor: Colors.red,
         ),
@@ -222,6 +275,15 @@ class _SummaryScreenState extends State<SummaryScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  void _retryGeneration() {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+      _retryCount = 0;
+    });
+    _fetchSummary();
   }
 
   @override
@@ -378,9 +440,9 @@ class _SummaryScreenState extends State<SummaryScreen> {
                           size: 48,
                         ),
                         const SizedBox(height: 16),
-                        Text(
+                        const Text(
                           'Error',
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.red,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -397,10 +459,21 @@ class _SummaryScreenState extends State<SummaryScreen> {
                         ),
                         const SizedBox(height: 24),
                         ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _retryGeneration,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF4296EA),
                             foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            side: const BorderSide(color: Color(0xFF4296EA)),
                           ),
                           child: const Text('Go Back'),
                         ),
