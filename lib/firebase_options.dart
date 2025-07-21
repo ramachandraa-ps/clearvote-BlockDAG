@@ -31,51 +31,52 @@ class DefaultFirebaseOptions {
   /// Firebase options for web platform
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyBvuFSCGUWpKZaYnlvYmDLXHKZWxCXDWE0',
-    appId: '1:1082745525428:web:a4e6b0f4d2e3b5c9d8e7f6',
-    messagingSenderId: '1082745525428',
+    appId: '1:698774116849:web:2ba585ca085e2e505c8c50',
+    messagingSenderId: '698774116849',
     projectId: 'clearvote2025',
     authDomain: 'clearvote2025.firebaseapp.com',
-    storageBucket: 'clearvote2025.appspot.com',
+    storageBucket: 'clearvote2025.firebasestorage.app',
     measurementId: 'G-XYZBCDEFGH',
   );
 
   /// Firebase options for android platform
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBvuFSCGUWpKZaYnlvYmDLXHKZWxCXDWE0',
-    appId: '1:1082745525428:android:a4e6b0f4d2e3b5c9d8e7f6',
-    messagingSenderId: '1082745525428',
+    apiKey: 'AIzaSyCuXY8jRvILQMaswvi31TE0t1FyK_6kHpg',
+    appId: '1:698774116849:android:2ba585ca085e2e505c8c50',
+    messagingSenderId: '698774116849',
     projectId: 'clearvote2025',
-    storageBucket: 'clearvote2025.appspot.com',
+    storageBucket: 'clearvote2025.firebasestorage.app',
+    databaseURL: 'https://clearvote2025-default-rtdb.firebaseio.com',
   );
 
   /// Firebase options for iOS platform
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBvuFSCGUWpKZaYnlvYmDLXHKZWxCXDWE0',
-    appId: '1:1082745525428:ios:a4e6b0f4d2e3b5c9d8e7f6',
-    messagingSenderId: '1082745525428',
+    appId: '1:698774116849:ios:2ba585ca085e2e505c8c50',
+    messagingSenderId: '698774116849',
     projectId: 'clearvote2025',
-    storageBucket: 'clearvote2025.appspot.com',
-    iosClientId: '1082745525428-abc123def456.apps.googleusercontent.com',
+    storageBucket: 'clearvote2025.firebasestorage.app',
+    iosClientId: '698774116849-abc123def456.apps.googleusercontent.com',
     iosBundleId: 'com.example.clearvote',
   );
 
   /// Firebase options for macOS platform
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyBvuFSCGUWpKZaYnlvYmDLXHKZWxCXDWE0',
-    appId: '1:1082745525428:ios:a4e6b0f4d2e3b5c9d8e7f6',
-    messagingSenderId: '1082745525428',
+    appId: '1:698774116849:ios:2ba585ca085e2e505c8c50',
+    messagingSenderId: '698774116849',
     projectId: 'clearvote2025',
-    storageBucket: 'clearvote2025.appspot.com',
-    iosClientId: '1082745525428-abc123def456.apps.googleusercontent.com',
+    storageBucket: 'clearvote2025.firebasestorage.app',
+    iosClientId: '698774116849-abc123def456.apps.googleusercontent.com',
     iosBundleId: 'com.example.clearvote',
   );
 
   /// Firebase options for Windows platform
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyBvuFSCGUWpKZaYnlvYmDLXHKZWxCXDWE0',
-    appId: '1:1082745525428:windows:a4e6b0f4d2e3b5c9d8e7f6',
-    messagingSenderId: '1082745525428',
+    appId: '1:698774116849:windows:2ba585ca085e2e505c8c50',
+    messagingSenderId: '698774116849',
     projectId: 'clearvote2025',
-    storageBucket: 'clearvote2025.appspot.com',
+    storageBucket: 'clearvote2025.firebasestorage.app',
   );
 } 

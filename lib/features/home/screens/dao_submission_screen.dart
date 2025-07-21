@@ -8,6 +8,7 @@ import 'package:clearvote/features/history/screens/history_screen.dart';
 import 'package:clearvote/features/comparison/screens/comparison_screen.dart';
 import 'package:clearvote/features/auth/screens/profile_screen.dart';
 import 'package:clearvote/features/auth/screens/login_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DAOSubmissionScreen extends StatefulWidget {
   const DAOSubmissionScreen({super.key});
@@ -37,13 +38,31 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   
   void _checkAuthentication() {
     // Check if user is authenticated
-    if (!_authService.isLoggedIn) {
+    final user = FirebaseAuth.instance.currentUser;
+    debugPrint('DAOSubmissionScreen - Current user: ${user?.uid ?? 'null'}');
+    
+    if (user == null) {
+      debugPrint('DAOSubmissionScreen - No user found, redirecting to login');
       // Redirect to login screen after frame is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
           (route) => false,
         );
+      });
+    } else {
+      // Verify the token is still valid
+      user.getIdToken().then((token) {
+        debugPrint('DAOSubmissionScreen - User token is valid');
+      }).catchError((error) {
+        debugPrint('DAOSubmissionScreen - Token error: $error, redirecting to login');
+        // Token is invalid, sign out and redirect
+        FirebaseAuth.instance.signOut().then((_) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
+        });
       });
     }
   }
@@ -199,6 +218,20 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
       ),
     );
   }
+  
+  void _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error signing out: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +263,10 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
           IconButton(
             icon: const Icon(Icons.info_outline, color: Colors.white),
             onPressed: _navigateToAbout,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: _signOut,
           ),
         ],
       ),

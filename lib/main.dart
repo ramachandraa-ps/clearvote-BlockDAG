@@ -28,6 +28,24 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint('Firebase initialized successfully');
+    
+    // Debug: Check current auth state
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      debugPrint('User is already signed in: ${user.uid}');
+    } else {
+      debugPrint('No user is currently signed in');
+    }
+    
+    // Listen to auth state changes for debugging
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null) {
+        debugPrint('Auth state changed: User is signed out');
+      } else {
+        debugPrint('Auth state changed: User is signed in with uid: ${user.uid}');
+      }
+    });
+    
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
   }
@@ -67,16 +85,24 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
+        // Debug the snapshot state
+        debugPrint('Auth snapshot hasData: ${snapshot.hasData}');
+        if (snapshot.hasData) {
+          debugPrint('Auth snapshot data uid: ${snapshot.data?.uid}');
+        }
+        
         // If the snapshot has user data and the user is properly authenticated
         if (snapshot.hasData && snapshot.data != null && snapshot.data!.uid.isNotEmpty) {
           // Double-check if the user is actually authenticated
           final user = FirebaseAuth.instance.currentUser;
           if (user != null && user.uid.isNotEmpty) {
+            debugPrint('User authenticated, navigating to DAOSubmissionScreen');
             return const DAOSubmissionScreen();
           }
         }
         
         // Otherwise, user is not signed in
+        debugPrint('User not authenticated, navigating to LoginScreen');
         return const LoginScreen();
       },
     );
