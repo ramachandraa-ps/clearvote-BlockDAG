@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:clearvote/core/services/gemini_service.dart';
+import 'package:clearvote/core/services/auth_service.dart';
+import 'package:clearvote/features/auth/screens/login_screen.dart';
 
 class ComparisonScreen extends StatefulWidget {
   const ComparisonScreen({super.key});
@@ -15,6 +17,7 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
   ];
   
   final GeminiService _geminiService = GeminiService();
+  final AuthService _authService = AuthService();
   
   bool _isLoading = false;
   bool _showComparison = false;
@@ -24,6 +27,25 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
   Map<String, List<String>> _differences = {};
   List<String> _similarities = [];
   String _analysis = '';
+  
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthentication();
+  }
+  
+  void _checkAuthentication() {
+    // Check if user is authenticated
+    if (!_authService.isLoggedIn) {
+      // Redirect to login screen after frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      });
+    }
+  }
 
   @override
   void dispose() {

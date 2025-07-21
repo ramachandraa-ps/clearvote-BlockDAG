@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:clearvote/core/services/auth_service.dart';
 
 class FirebaseService {
   static final FirebaseService _instance = FirebaseService._internal();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService();
 
   factory FirebaseService() {
     return _instance;
@@ -13,21 +14,12 @@ class FirebaseService {
   FirebaseService._internal();
 
   // Get the current user ID or null if not logged in
-  String? get currentUserId => _auth.currentUser?.uid;
+  String? get currentUserId => _authService.currentUserId;
   
   // Check if user is logged in
-  bool get isLoggedIn => _auth.currentUser != null;
-
-  // AUTHENTICATION METHODS
-  
-  // Sign in anonymously
-  Future<UserCredential> signInAnonymously() async {
-    return await _auth.signInAnonymously();
-  }
-  
-  // Sign out
-  Future<void> signOut() async {
-    await _auth.signOut();
+  bool get isLoggedIn {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null && user.uid.isNotEmpty;
   }
 
   // PROPOSAL METHODS
@@ -40,8 +32,22 @@ class FirebaseService {
       proposalData['userId'] = currentUserId;
     }
     
+    // Extract title from original text if not provided
+    if (!proposalData.containsKey('title') && proposalData.containsKey('originalText')) {
+      String text = proposalData['originalText'] as String;
+      String title = text.split('\n').first;
+      if (title.length > 50) {
+        title = '${title.substring(0, 47)}...';
+      }
+      proposalData['title'] = title;
+    }
+    
     // Add to proposals collection
     final docRef = await _firestore.collection('proposals').add(proposalData);
+    
+    // Also save to user history if logged in
+    await saveToHistory(proposalData);
+    
     return docRef.id;
   }
   
@@ -49,7 +55,10 @@ class FirebaseService {
   Future<Map<String, dynamic>?> getProposal(String proposalId) async {
     final docSnapshot = await _firestore.collection('proposals').doc(proposalId).get();
     if (docSnapshot.exists) {
-      return docSnapshot.data() as Map<String, dynamic>;
+      return {
+        'id': docSnapshot.id,
+        ...docSnapshot.data() as Map<String, dynamic>,
+      };
     }
     return null;
   }

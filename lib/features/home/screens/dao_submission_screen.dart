@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:clearvote/core/services/gemini_service.dart';
 import 'package:clearvote/core/services/firebase_service.dart';
+import 'package:clearvote/core/services/auth_service.dart';
 import 'package:clearvote/features/summary/screens/summary_screen.dart';
 import 'package:clearvote/features/about/screens/about_screen.dart';
 import 'package:clearvote/features/history/screens/history_screen.dart';
 import 'package:clearvote/features/comparison/screens/comparison_screen.dart';
+import 'package:clearvote/features/auth/screens/profile_screen.dart';
+import 'package:clearvote/features/auth/screens/login_screen.dart';
 
 class DAOSubmissionScreen extends StatefulWidget {
   const DAOSubmissionScreen({super.key});
@@ -17,6 +20,7 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   final TextEditingController _proposalController = TextEditingController();
   final GeminiService _geminiService = GeminiService();
   final FirebaseService _firebaseService = FirebaseService();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
   double _summaryLength = 0.5; // Default to middle value
   String? _apiError;
@@ -26,8 +30,22 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
   @override
   void initState() {
     super.initState();
+    _checkAuthentication();
     _checkApiConfiguration();
     _loadRecentProposals();
+  }
+  
+  void _checkAuthentication() {
+    // Check if user is authenticated
+    if (!_authService.isLoggedIn) {
+      // Redirect to login screen after frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      });
+    }
   }
   
   void _checkApiConfiguration() {
@@ -173,6 +191,14 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
       ),
     );
   }
+  
+  void _navigateToProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const ProfileScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +218,14 @@ class _DAOSubmissionScreenState extends State<DAOSubmissionScreen> {
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
             onPressed: _navigateToHistory,
+          ),
+          IconButton(
+            icon: const Icon(Icons.compare_arrows, color: Colors.white),
+            onPressed: _navigateToComparison,
+          ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: _navigateToProfile,
           ),
           IconButton(
             icon: const Icon(Icons.info_outline, color: Colors.white),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:clearvote/features/summary/screens/summary_screen.dart';
 import 'package:clearvote/core/services/firebase_service.dart';
+import 'package:clearvote/core/services/auth_service.dart';
+import 'package:clearvote/features/auth/screens/login_screen.dart';
 import 'package:intl/intl.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -12,6 +14,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   final FirebaseService _firebaseService = FirebaseService();
+  final AuthService _authService = AuthService();
   bool _isLoading = true;
   List<Map<String, dynamic>> _historySummaries = [];
   String? _error;
@@ -19,6 +22,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
+    _checkAuthentication();
+  }
+  
+  void _checkAuthentication() {
+    // Check if user is authenticated
+    if (!_authService.isLoggedIn) {
+      // Redirect to login screen after frame is built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
+          (route) => false,
+        );
+      });
+      return;
+    }
+    
+    // If authenticated, load the history
     _loadHistory();
   }
 

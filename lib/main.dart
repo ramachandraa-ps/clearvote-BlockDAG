@@ -6,6 +6,7 @@ import 'package:clearvote/features/home/screens/dao_submission_screen.dart';
 import 'package:clearvote/features/history/screens/history_screen.dart';
 import 'package:clearvote/features/about/screens/about_screen.dart';
 import 'package:clearvote/features/comparison/screens/comparison_screen.dart';
+import 'package:clearvote/features/auth/screens/login_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:clearvote/firebase_options.dart';
@@ -27,14 +28,6 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint('Firebase initialized successfully');
-    
-    // Sign in anonymously to enable Firestore access without requiring user login
-    try {
-      await FirebaseAuth.instance.signInAnonymously();
-      debugPrint('Signed in anonymously');
-    } catch (e) {
-      debugPrint('Anonymous sign-in failed: $e');
-    }
   } catch (e) {
     debugPrint('Firebase initialization failed: $e');
   }
@@ -42,7 +35,7 @@ void main() async {
   // Initialize app configuration
   AppConfig.initConfig(Environment.dev);
   
-  // Run the app with DAOSubmissionScreen as the home screen
+  // Run the app
   runApp(const ClearVoteApp());
 }
 
@@ -55,11 +48,36 @@ class ClearVoteApp extends StatelessWidget {
       title: 'ClearVote',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const DAOSubmissionScreen(), // Directly use DAOSubmissionScreen as the home widget
+      home: const AuthWrapper(),
       routes: {
+        '/home': (context) => const DAOSubmissionScreen(),
         '/history': (context) => const HistoryScreen(),
         '/about': (context) => const AboutScreen(),
         '/comparison': (context) => const ComparisonScreen(),
+      },
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // If the snapshot has user data and the user is properly authenticated
+        if (snapshot.hasData && snapshot.data != null && snapshot.data!.uid.isNotEmpty) {
+          // Double-check if the user is actually authenticated
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null && user.uid.isNotEmpty) {
+            return const DAOSubmissionScreen();
+          }
+        }
+        
+        // Otherwise, user is not signed in
+        return const LoginScreen();
       },
     );
   }
